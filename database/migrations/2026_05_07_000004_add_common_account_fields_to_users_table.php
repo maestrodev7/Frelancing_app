@@ -20,7 +20,7 @@ return new class extends Migration
 
         Schema::table('users', function (Blueprint $table) {
             if (! Schema::hasColumn('users', 'phone')) {
-                $table->string('phone')->after('email');
+                $table->string('phone')->nullable()->after('email');
             }
 
             if (! Schema::hasColumn('users', 'avatar_url')) {
