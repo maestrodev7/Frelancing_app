@@ -2,6 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Domain\Users\Enums\AccountStatus;
+use App\Domain\Users\Enums\UserRole;
+use App\Models\Country;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -27,8 +30,17 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            'phone' => fake()->phoneNumber(),
+            'country_id' => Country::query()->firstOrCreate(
+                ['code' => 'CM'],
+                ['name' => 'Cameroun'],
+            )->id,
+            'avatar_url' => null,
             'email_verified_at' => now(),
+            'last_login_at' => null,
             'password' => static::$password ??= Hash::make('password'),
+            'role' => UserRole::Client,
+            'status' => AccountStatus::Active,
             'remember_token' => Str::random(10),
         ];
     }

@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use App\Domain\Users\Enums\AccountStatus;
+use App\Domain\Users\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -21,7 +25,13 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
+        'country_id',
+        'avatar_url',
         'password',
+        'role',
+        'status',
+        'last_login_at',
     ];
 
     /**
@@ -43,7 +53,26 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
+            'status' => AccountStatus::class,
         ];
+    }
+
+    /**
+     * @return HasOne<ClientProfile, $this>
+     */
+    public function clientProfile(): HasOne
+    {
+        return $this->hasOne(ClientProfile::class);
+    }
+
+    /**
+     * @return BelongsTo<Country, $this>
+     */
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
     }
 }
