@@ -69,6 +69,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasOne<FreelancerProfile, $this>
+     */
+    public function freelancerProfile(): HasOne
+    {
+        return $this->hasOne(FreelancerProfile::class);
+    }
+
+    /**
      * @return BelongsTo<Country, $this>
      */
     public function country(): BelongsTo
