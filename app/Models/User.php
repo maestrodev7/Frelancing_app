@@ -8,6 +8,7 @@ use App\Domain\Users\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -82,5 +83,31 @@ class User extends Authenticatable
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
+    }
+
+    /**
+     * @return HasMany<Mission, $this>
+     */
+    public function missions(): HasMany
+    {
+        return $this->hasMany(Mission::class);
+    }
+
+    /**
+     * @return HasMany<Proposal, $this>
+     */
+    public function proposals(): HasMany
+    {
+        return $this->hasMany(Proposal::class);
+    }
+
+    public function isClient(): bool
+    {
+        return $this->role === UserRole::Client;
+    }
+
+    public function isFreelancer(): bool
+    {
+        return $this->role === UserRole::Freelancer;
     }
 }

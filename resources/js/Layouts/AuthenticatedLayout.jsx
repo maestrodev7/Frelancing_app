@@ -30,6 +30,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    href={route('missions.index')}
+                                    active={route().current('missions.*')}
+                                >
+                                    {user.role === 'client'
+                                        ? 'Mes missions'
+                                        : 'Missions'}
+                                </NavLink>
                             </div>
                         </div>
 
@@ -133,6 +141,14 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('dashboard')}
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('missions.index')}
+                            active={route().current('missions.*')}
+                        >
+                            {user.role === 'client'
+                                ? 'Mes missions'
+                                : 'Missions'}
                         </ResponsiveNavLink>
                     </div>
 
