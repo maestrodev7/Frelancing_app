@@ -2,9 +2,8 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 
-export default function Dashboard() {
+export default function Dashboard({ isClient = false, isFreelancer = false }) {
     const user = usePage().props.auth.user;
-    const isClient = user?.role === 'client';
 
     return (
         <AuthenticatedLayout
@@ -26,7 +25,9 @@ export default function Dashboard() {
                             <p className="mt-2 text-sm text-gray-600">
                                 {isClient
                                     ? 'Publiez des missions et consultez les propositions des freelances.'
-                                    : 'Parcourez les missions ouvertes et envoyez vos propositions.'}
+                                    : isFreelancer
+                                      ? 'Parcourez les missions ouvertes et envoyez vos propositions.'
+                                      : 'Bienvenue sur la plateforme.'}
                             </p>
                             <div className="mt-6 flex flex-wrap gap-3">
                                 <Link href={route('missions.index')}>

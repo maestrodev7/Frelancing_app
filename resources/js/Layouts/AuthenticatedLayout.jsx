@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
+    const isStaff = user.role === 'admin' || user.role === 'secretary';
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -30,14 +31,36 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Dashboard
                                 </NavLink>
-                                <NavLink
-                                    href={route('missions.index')}
-                                    active={route().current('missions.*')}
-                                >
-                                    {user.role === 'client'
-                                        ? 'Mes missions'
-                                        : 'Missions'}
-                                </NavLink>
+                                {!isStaff && (
+                                    <NavLink
+                                        href={route('missions.index')}
+                                        active={route().current('missions.*')}
+                                    >
+                                        {user.role === 'client'
+                                            ? 'Mes missions'
+                                            : 'Missions'}
+                                    </NavLink>
+                                )}
+                                {isStaff && (
+                                    <>
+                                        <NavLink
+                                            href={route('admin.users.index')}
+                                            active={route().current(
+                                                'admin.users.*',
+                                            )}
+                                        >
+                                            Utilisateurs
+                                        </NavLink>
+                                        <NavLink
+                                            href={route('admin.disputes.index')}
+                                            active={route().current(
+                                                'admin.disputes.*',
+                                            )}
+                                        >
+                                            Litiges
+                                        </NavLink>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -142,14 +165,32 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Dashboard
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('missions.index')}
-                            active={route().current('missions.*')}
-                        >
-                            {user.role === 'client'
-                                ? 'Mes missions'
-                                : 'Missions'}
-                        </ResponsiveNavLink>
+                        {!isStaff && (
+                            <ResponsiveNavLink
+                                href={route('missions.index')}
+                                active={route().current('missions.*')}
+                            >
+                                {user.role === 'client'
+                                    ? 'Mes missions'
+                                    : 'Missions'}
+                            </ResponsiveNavLink>
+                        )}
+                        {isStaff && (
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('admin.users.index')}
+                                    active={route().current('admin.users.*')}
+                                >
+                                    Utilisateurs
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('admin.disputes.index')}
+                                    active={route().current('admin.disputes.*')}
+                                >
+                                    Litiges
+                                </ResponsiveNavLink>
+                            </>
+                        )}
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">

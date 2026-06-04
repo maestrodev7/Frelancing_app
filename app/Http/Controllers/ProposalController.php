@@ -21,7 +21,10 @@ class ProposalController extends Controller
         DB::transaction(function () use ($proposal): void {
             $proposal->update(['status' => ProposalStatus::Accepted]);
 
-            $proposal->mission->update(['status' => MissionStatus::InProgress]);
+            $proposal->mission->update([
+                'status' => MissionStatus::InProgress,
+                'accepted_proposal_id' => $proposal->id,
+            ]);
 
             $proposal->mission->proposals()
                 ->where('id', '!=', $proposal->id)

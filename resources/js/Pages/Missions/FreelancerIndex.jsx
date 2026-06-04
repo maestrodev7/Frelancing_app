@@ -22,10 +22,9 @@ export default function FreelancerIndex({ missions = [] }) {
                         </div>
                     ) : (
                         missions.map((mission) => (
-                            <Link
+                            <div
                                 key={mission.id}
-                                href={route('missions.show', mission.id)}
-                                className="block rounded-lg bg-white p-6 shadow-sm transition hover:shadow-md"
+                                className="rounded-lg bg-white p-6 shadow-sm"
                             >
                                 <h3 className="text-lg font-semibold text-gray-900">
                                     {mission.title}
@@ -46,7 +45,13 @@ export default function FreelancerIndex({ missions = [] }) {
                                         <span>Échéance : {mission.deadline_at}</span>
                                     )}
                                 </div>
-                            </Link>
+                                <Link
+                                    href={route('missions.show', mission.id)}
+                                    className="mt-4 inline-flex rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                                >
+                                    Consulter et postuler
+                                </Link>
+                            </div>
                         ))
                     )}
                 </div>

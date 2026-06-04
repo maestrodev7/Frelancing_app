@@ -7,6 +7,7 @@ use App\Domain\Missions\Enums\MissionType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Mission extends Model
 {
@@ -26,6 +27,7 @@ class Mission extends Model
         'moderation_status',
         'moderated_by_admin_id',
         'moderated_at',
+        'accepted_proposal_id',
     ];
 
     /**
@@ -62,8 +64,52 @@ class Mission extends Model
         return $this->hasMany(Proposal::class);
     }
 
+    /**
+     * @return BelongsTo<Proposal, $this>
+     */
+    public function acceptedProposal(): BelongsTo
+    {
+        return $this->belongsTo(Proposal::class, 'accepted_proposal_id');
+    }
+
+    /**
+     * @return HasOne<Dispute, $this>
+     */
+    public function dispute(): HasOne
+    {
+        return $this->hasOne(Dispute::class);
+    }
+
+    /**
+     * @return HasMany<MissionReview, $this>
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(MissionReview::class);
+    }
+
     public function isOpen(): bool
     {
         return $this->status === MissionStatus::Open;
+    }
+
+    public function isInProgress(): bool
+    {
+        return $this->status === MissionStatus::InProgress;
+    }
+
+    public function isDisputed(): bool
+    {
+        return $this->status === MissionStatus::Disputed;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->status === MissionStatus::Closed;
+    }
+
+    public function freelancerUserId(): ?int
+    {
+        return $this->acceptedProposal?->user_id;
     }
 }

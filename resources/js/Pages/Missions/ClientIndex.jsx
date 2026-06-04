@@ -63,11 +63,11 @@ export default function ClientIndex({ missions = [] }) {
                                     <span>
                                         {mission.proposals_count ?? 0} proposition(s)
                                     </span>
-                                    {(mission.pending_proposals_count ?? 0) > 0 && (
-                                        <span className="font-medium text-indigo-600">
-                                            {mission.pending_proposals_count} en attente
-                                        </span>
-                                    )}
+                                    <span className="font-medium text-indigo-600">
+                                        {(mission.pending_proposals_count ?? 0) > 0
+                                            ? `${mission.pending_proposals_count} candidature(s) à traiter`
+                                            : 'Voir les candidatures'}
+                                    </span>
                                 </div>
                             </Link>
                         ))

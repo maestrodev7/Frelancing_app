@@ -110,4 +110,24 @@ class User extends Authenticatable
     {
         return $this->role === UserRole::Freelancer;
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::Admin;
+    }
+
+    public function isSecretary(): bool
+    {
+        return $this->role === UserRole::Secretary;
+    }
+
+    public function isStaff(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Secretary], true);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === AccountStatus::Active;
+    }
 }

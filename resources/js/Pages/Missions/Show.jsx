@@ -1,6 +1,7 @@
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
+import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 
@@ -15,6 +16,11 @@ function FlashMessage() {
         'proposal-sent': 'Votre proposition a été envoyée avec succès.',
         'proposal-accepted': 'Proposition acceptée. La mission est en cours.',
         'proposal-rejected': 'Proposition refusée.',
+        'dispute-opened':
+            'Litige ouvert. Un administrateur ou secrétaire va traiter votre demande.',
+        'mission-closed':
+            'Mission clôturée. Vous pouvez maintenant laisser un avis à votre partenaire.',
+        'review-submitted': 'Merci, votre avis a été enregistré.',
     };
 
     const text = messages[status] ?? status;
@@ -99,11 +105,18 @@ export default function Show({
     mission,
     proposals = [],
     myProposal = null,
+    assignedFreelancer = null,
+    dispute = null,
     canApply = false,
+    canOpenDispute = false,
+    canCloseMission = false,
+    canReview = false,
+    myReview = null,
+    receivedReviews = [],
     isOwner = false,
     pricingTypes = [],
 }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post: postProposal, processing, errors, reset } = useForm({
         cover_letter: '',
         pricing_type: 'fixed',
         amount_fixed: '',
@@ -112,11 +125,47 @@ export default function Show({
         delivery_days: '',
     });
 
+    const { post: postClose } = useForm({});
+    const disputeForm = useForm({ reason: '' });
+    const reviewForm = useForm({ rating: 5, comment: '' });
+
     const submitProposal = (e) => {
         e.preventDefault();
-        post(route('missions.proposals.store', mission.id), {
+        postProposal(route('missions.proposals.store', mission.id), {
             onSuccess: () => reset(),
         });
+    };
+
+    const submitDispute = (e) => {
+        e.preventDefault();
+        if (
+            !window.confirm(
+                'Confirmez-vous l’ouverture d’un litige sur cette mission ?',
+            )
+        ) {
+            return;
+        }
+        disputeForm.post(route('missions.disputes.store', mission.id), {
+            onSuccess: () => disputeForm.reset(),
+        });
+    };
+
+    const submitReview = (e) => {
+        e.preventDefault();
+        reviewForm.post(route('missions.reviews.store', mission.id), {
+            onSuccess: () => reviewForm.reset(),
+        });
+    };
+
+    const closeMission = () => {
+        if (
+            !window.confirm(
+                'Confirmez-vous la clôture de cette mission ? Les avis pourront ensuite être déposés.',
+            )
+        ) {
+            return;
+        }
+        postClose(route('missions.close', mission.id));
     };
 
     const isHourly = data.pricing_type === 'hourly';
@@ -176,14 +225,198 @@ export default function Show({
                             {mission.deadline_at && (
                                 <span>Échéance : {mission.deadline_at}</span>
                             )}
+                            {assignedFreelancer && (
+                                <span>
+                                    Freelance assigné : {assignedFreelancer.name}
+                                </span>
+                            )}
                         </div>
+
+                        {dispute && (
+                            <div
+                                className={`mt-6 rounded-lg border p-4 ${
+                                    dispute.status === 'open'
+                                        ? 'border-red-200 bg-red-50'
+                                        : 'border-green-200 bg-green-50'
+                                }`}
+                            >
+                                <h3 className="font-semibold text-gray-900">
+                                    Litige — {dispute.status_label}
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-700">
+                                    {dispute.reason}
+                                </p>
+                                {dispute.status === 'resolved' &&
+                                    dispute.resolution_notes && (
+                                        <p className="mt-2 text-sm text-gray-600">
+                                            <strong>Résolution :</strong>{' '}
+                                            {dispute.resolution_notes}
+                                        </p>
+                                    )}
+                            </div>
+                        )}
+
+                        {isOwner && canCloseMission && (
+                            <div className="mt-6">
+                                <button
+                                    type="button"
+                                    onClick={closeMission}
+                                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                    Clôturer la mission
+                                </button>
+                            </div>
+                        )}
+
+                        {isOwner && canOpenDispute && (
+                            <form
+                                onSubmit={submitDispute}
+                                className="mt-6 space-y-3 rounded-lg border border-red-100 bg-red-50/50 p-4"
+                            >
+                                <h3 className="font-semibold text-red-900">
+                                    Signaler un problème (litige)
+                                </h3>
+                                <p className="text-sm text-gray-600">
+                                    En cas de conflit avec le freelance pendant
+                                    la mission, ouvrez un litige. Le staff le
+                                    traitera et le statut sera visible pour
+                                    les deux parties.
+                                </p>
+                                <textarea
+                                    rows={4}
+                                    value={disputeForm.data.reason}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm"
+                                    placeholder="Décrivez le problème…"
+                                    onChange={(e) =>
+                                        disputeForm.setData(
+                                            'reason',
+                                            e.target.value,
+                                        )
+                                    }
+                                    required
+                                />
+                                <InputError
+                                    message={disputeForm.errors.reason}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={disputeForm.processing}
+                                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                                >
+                                    Ouvrir un litige
+                                </button>
+                            </form>
+                        )}
                     </div>
 
-                    {isOwner && (
-                        <div className="space-y-4">
+                    {(myReview || receivedReviews.length > 0) && (
+                        <div className="space-y-4 rounded-lg bg-white p-6 shadow-sm">
                             <h3 className="text-lg font-semibold text-gray-900">
-                                Propositions reçues ({proposals.length})
+                                Avis sur la mission
                             </h3>
+                            {myReview && (
+                                <div className="rounded border border-indigo-100 bg-indigo-50 p-4">
+                                    <p className="text-sm font-medium text-gray-700">
+                                        Votre avis
+                                    </p>
+                                    <p className="mt-1">
+                                        {'★'.repeat(myReview.rating)}
+                                        {'☆'.repeat(5 - myReview.rating)}
+                                    </p>
+                                    {myReview.comment && (
+                                        <p className="mt-2 text-sm text-gray-600">
+                                            {myReview.comment}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                            {receivedReviews.map((review, index) => (
+                                <div
+                                    key={index}
+                                    className="rounded border border-gray-200 p-4"
+                                >
+                                    <p className="text-sm font-medium text-gray-700">
+                                        Avis de {review.reviewer_name}
+                                    </p>
+                                    <p className="mt-1">
+                                        {'★'.repeat(review.rating)}
+                                        {'☆'.repeat(5 - review.rating)}
+                                    </p>
+                                    {review.comment && (
+                                        <p className="mt-2 text-sm text-gray-600">
+                                            {review.comment}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {canReview && (
+                        <form
+                            onSubmit={submitReview}
+                            className="space-y-4 rounded-lg bg-white p-6 shadow-sm"
+                        >
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Noter votre partenaire
+                            </h3>
+                            <div>
+                                <InputLabel htmlFor="rating" value="Note (1 à 5)" />
+                                <select
+                                    id="rating"
+                                    value={reviewForm.data.rating}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                    onChange={(e) =>
+                                        reviewForm.setData(
+                                            'rating',
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                >
+                                    {[5, 4, 3, 2, 1].map((n) => (
+                                        <option key={n} value={n}>
+                                            {n} étoile{n > 1 ? 's' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={reviewForm.errors.rating} />
+                            </div>
+                            <div>
+                                <InputLabel
+                                    htmlFor="comment"
+                                    value="Commentaire (optionnel)"
+                                />
+                                <textarea
+                                    id="comment"
+                                    rows={3}
+                                    value={reviewForm.data.comment}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                    onChange={(e) =>
+                                        reviewForm.setData(
+                                            'comment',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError message={reviewForm.errors.comment} />
+                            </div>
+                            <PrimaryButton disabled={reviewForm.processing}>
+                                Publier mon avis
+                            </PrimaryButton>
+                        </form>
+                    )}
+
+                    {isOwner && (
+                        <div id="propositions" className="space-y-4">
+                            <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Freelances ayant postulé ({proposals.length})
+                                </h3>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Consultez chaque candidature, puis acceptez ou
+                                    refusez la proposition qui vous convient.
+                                </p>
+                            </div>
                             {proposals.length === 0 ? (
                                 <p className="rounded-lg bg-white p-6 text-sm text-gray-600 shadow-sm">
                                     Aucune proposition pour le moment.

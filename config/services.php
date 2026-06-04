@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'staff_provisioning' => [
+        'token' => env('STAFF_PROVISIONING_TOKEN'),
+    ],
+
 ];

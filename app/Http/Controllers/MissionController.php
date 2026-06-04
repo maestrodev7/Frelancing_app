@@ -8,6 +8,7 @@ use App\Domain\Missions\Enums\ProposalStatus;
 use App\Http\Requests\StoreMissionRequest;
 use App\Http\Requests\StoreProposalRequest;
 use App\Models\Mission;
+use App\Models\MissionReview;
 use App\Models\Proposal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -93,15 +94,23 @@ class MissionController extends Controller
     public function show(Request $request, Mission $mission): Response
     {
         $user = $request->user();
-        $mission->load(['client:id,name,email']);
+        $mission->load([
+            'client:id,name,email',
+            'acceptedProposal.freelancer:id,name,email',
+            'dispute.resolvedBy:id,name',
+            'reviews.reviewer:id,name',
+            'reviews.reviewee:id,name',
+        ]);
 
         $isOwner = $user->id === $mission->user_id;
+        $freelancerId = $mission->freelancerUserId();
+        $isAssignedFreelancer = $freelancerId === $user->id;
 
-        if ($user->isFreelancer() && ! $mission->isOpen() && ! $isOwner) {
-            abort(404);
-        }
-
-        if ($user->isFreelancer() && $mission->user_id === $user->id) {
+        if ($user->isFreelancer()) {
+            if (! $mission->isOpen() && ! $isAssignedFreelancer) {
+                abort(404);
+            }
+        } elseif (! $isOwner && ! $user->isStaff()) {
             abort(403);
         }
 
@@ -124,19 +133,72 @@ class MissionController extends Controller
             }
         }
 
+        $myReview = null;
+        $receivedReviews = [];
+
+        if ($isOwner || $isAssignedFreelancer) {
+            $myReview = $mission->reviews->firstWhere('reviewer_id', $user->id);
+            $receivedReviews = $mission->reviews
+                ->where('reviewee_id', $user->id)
+                ->values()
+                ->map(fn (MissionReview $review): array => [
+                    'rating' => $review->rating,
+                    'comment' => $review->comment,
+                    'reviewer_name' => $review->reviewer->name,
+                    'created_at' => $review->created_at?->toDateTimeString(),
+                ]);
+        }
+
         return Inertia::render('Missions/Show', [
             'mission' => $this->missionPayload($mission, includeClient: true, detailed: true),
             'proposals' => $proposals,
             'myProposal' => $myProposal,
+            'assignedFreelancer' => $mission->acceptedProposal?->freelancer?->only(['id', 'name', 'email']),
+            'dispute' => $mission->dispute ? [
+                'id' => $mission->dispute->id,
+                'status' => $mission->dispute->status->value,
+                'status_label' => $mission->dispute->isOpen() ? 'Ouvert' : 'Résolu',
+                'reason' => $mission->dispute->reason,
+                'resolution_notes' => $mission->dispute->resolution_notes,
+                'resolution_outcome' => $mission->dispute->resolution_outcome,
+                'resolved_at' => $mission->dispute->resolved_at?->toDateTimeString(),
+                'resolved_by' => $mission->dispute->resolvedBy?->name,
+            ] : null,
             'canApply' => $user->isFreelancer()
                 && $mission->isOpen()
                 && $myProposal === null,
+            'canOpenDispute' => $isOwner
+                && $mission->isInProgress()
+                && $mission->dispute === null,
+            'canCloseMission' => $isOwner
+                && $mission->isInProgress()
+                && $mission->dispute === null,
+            'canReview' => $mission->isClosed()
+                && ($isOwner || $isAssignedFreelancer)
+                && $myReview === null,
+            'myReview' => $myReview ? [
+                'rating' => $myReview->rating,
+                'comment' => $myReview->comment,
+            ] : null,
+            'receivedReviews' => $receivedReviews,
             'isOwner' => $isOwner,
             'pricingTypes' => [
                 ['value' => 'fixed', 'label' => 'Forfait'],
                 ['value' => 'hourly', 'label' => 'Horaire'],
             ],
         ]);
+    }
+
+    public function close(Request $request, Mission $mission): RedirectResponse
+    {
+        abort_unless($mission->user_id === $request->user()->id, 403);
+        abort_unless($mission->isInProgress(), 403, 'Seules les missions en cours peuvent être clôturées.');
+
+        $mission->update(['status' => MissionStatus::Closed]);
+
+        return redirect()
+            ->route('missions.show', $mission)
+            ->with('status', 'mission-closed');
     }
 
     public function storeProposal(StoreProposalRequest $request, Mission $mission): RedirectResponse
@@ -239,6 +301,7 @@ class MissionController extends Controller
         return match ($status) {
             MissionStatus::Open => 'Ouverte',
             MissionStatus::InProgress => 'En cours',
+            MissionStatus::Disputed => 'En litige',
             MissionStatus::Closed => 'Clôturée',
             MissionStatus::Cancelled => 'Annulée',
         };
