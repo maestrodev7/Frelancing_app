@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Contact\Enums\ContactMessageStatus;
 use App\Domain\Missions\Enums\DisputeStatus;
+use App\Models\ContactMessage;
 use App\Models\Dispute;
 use App\Models\Mission;
 use App\Models\User;
@@ -22,6 +24,9 @@ class DashboardController extends Controller
                     'users_count' => User::query()->count(),
                     'open_disputes_count' => Dispute::query()->where('status', DisputeStatus::Open)->count(),
                     'missions_in_progress' => Mission::query()->where('status', 'in_progress')->count(),
+                    'new_contacts_count' => ContactMessage::query()
+                        ->where('status', ContactMessageStatus::New)
+                        ->count(),
                 ],
             ]);
         }

@@ -1,24 +1,20 @@
 <?php
 
+use App\Http\Controllers\Admin\ContactMessageController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\MissionController;
 use App\Http\Controllers\MissionReviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProposalController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+Route::get('/', LandingController::class)->name('home');
+Route::get('/contact', [ContactController::class, 'create'])->name('contact');
+Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])
@@ -33,6 +29,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/disputes/{dispute}', [DisputeController::class, 'show'])->name('disputes.show');
         Route::patch('/disputes/{dispute}/resolve', [DisputeController::class, 'resolve'])
             ->name('disputes.resolve');
+        Route::get('/contacts', [ContactMessageController::class, 'index'])->name('contacts.index');
+        Route::patch('/contacts/{contactMessage}/read', [ContactMessageController::class, 'markAsRead'])
+            ->name('contacts.read');
     });
 
     Route::middleware('role:client,freelancer')->group(function () {

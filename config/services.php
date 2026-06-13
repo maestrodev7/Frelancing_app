@@ -39,4 +39,12 @@ return [
         'token' => env('STAFF_PROVISIONING_TOKEN'),
     ],
 
+    'whatsapp' => [
+        'number' => env('WHATSAPP_NUMBER', '237600000000'),
+        'default_message' => env(
+            'WHATSAPP_DEFAULT_MESSAGE',
+            'Bonjour, je souhaite en savoir plus sur votre plateforme de freelancing.',
+        ),
+    ],
+
 ];

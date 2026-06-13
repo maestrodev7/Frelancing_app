@@ -20,7 +20,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         <div className="flex">
                             <div className="flex shrink-0 items-center">
                                 <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
+                                    <ApplicationLogo showName className="h-auto w-auto" />
                                 </Link>
                             </div>
 
@@ -58,6 +58,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                             )}
                                         >
                                             Litiges
+                                        </NavLink>
+                                        <NavLink
+                                            href={route('admin.contacts.index')}
+                                            active={route().current(
+                                                'admin.contacts.*',
+                                            )}
+                                        >
+                                            Messages
                                         </NavLink>
                                     </>
                                 )}
@@ -188,6 +196,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     active={route().current('admin.disputes.*')}
                                 >
                                     Litiges
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('admin.contacts.index')}
+                                    active={route().current('admin.contacts.*')}
+                                >
+                                    Messages
                                 </ResponsiveNavLink>
                             </>
                         )}

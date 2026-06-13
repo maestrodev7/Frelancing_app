@@ -46,6 +46,11 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
             ],
+            'landing' => [
+                'whatsapp' => config('services.whatsapp.number'),
+                'whatsapp_message' => config('services.whatsapp.default_message'),
+                'app_name' => config('app.name'),
+            ],
         ];
     }
 }
