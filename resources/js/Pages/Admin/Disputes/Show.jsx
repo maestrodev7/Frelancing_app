@@ -116,7 +116,10 @@ export default function DisputeShow({ dispute }) {
                                         Reprendre la mission (en cours)
                                     </option>
                                     <option value="close_mission">
-                                        Clôturer la mission
+                                        Clôturer et payer le freelance
+                                    </option>
+                                    <option value="refund_client">
+                                        Rembourser le client (frais déduits)
                                     </option>
                                 </select>
                             </div>

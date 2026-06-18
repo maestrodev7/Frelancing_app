@@ -147,11 +147,10 @@ class MissionFlowTest extends TestCase
 
         $this->actingAs($client)
             ->patch("/proposals/{$accepted->id}/accept")
-            ->assertRedirect(route('missions.show', $mission));
+            ->assertRedirect(route('proposals.payment.checkout', $accepted));
 
-        $this->assertSame(ProposalStatus::Accepted, $accepted->fresh()->status);
-        $this->assertSame(ProposalStatus::Rejected, $rejected->fresh()->status);
-        $this->assertSame(MissionStatus::InProgress, $mission->fresh()->status);
+        $this->assertSame(ProposalStatus::Pending, $accepted->fresh()->status);
+        $this->assertSame(MissionStatus::Open, $mission->fresh()->status);
     }
 
     public function test_client_can_reject_a_proposal(): void
@@ -185,6 +184,92 @@ class MissionFlowTest extends TestCase
 
         $this->assertSame(ProposalStatus::Rejected, $proposal->fresh()->status);
         $this->assertSame(MissionStatus::Open, $mission->fresh()->status);
+    }
+
+    public function test_accept_redirects_when_mission_awaiting_payment(): void
+    {
+        $client = $this->clientUser();
+        $freelancer = $this->freelancerUser();
+
+        $mission = Mission::create([
+            'user_id' => $client->id,
+            'title' => 'Mission attente',
+            'description' => 'Test',
+            'type' => 'fixed',
+            'currency' => 'XAF',
+            'status' => MissionStatus::AwaitingPayment,
+            'moderation_status' => 'approved',
+        ]);
+
+        $proposal = Proposal::create([
+            'mission_id' => $mission->id,
+            'user_id' => $freelancer->id,
+            'cover_letter' => 'Prop',
+            'pricing_type' => 'fixed',
+            'amount_fixed' => 500,
+            'delivery_days' => 5,
+            'status' => ProposalStatus::Pending,
+        ]);
+
+        $this->actingAs($client)
+            ->patch("/proposals/{$proposal->id}/accept")
+            ->assertRedirect(route('proposals.payment.checkout', $proposal));
+    }
+
+    public function test_client_can_update_open_mission(): void
+    {
+        $client = $this->clientUser();
+
+        $mission = Mission::create([
+            'user_id' => $client->id,
+            'title' => 'Ancien titre',
+            'description' => 'Ancienne description.',
+            'type' => 'fixed',
+            'currency' => 'XAF',
+            'budget_min' => 100,
+            'budget_max' => 500,
+            'status' => MissionStatus::Open,
+            'moderation_status' => 'approved',
+        ]);
+
+        $this->actingAs($client)
+            ->patch(route('missions.update', $mission), [
+                'title' => 'Nouveau titre',
+                'description' => 'Nouvelle description détaillée.',
+                'type' => 'fixed',
+                'currency' => 'XAF',
+                'budget_min' => 5000,
+                'budget_max' => 10000,
+            ])
+            ->assertRedirect(route('missions.show', $mission));
+
+        $mission->refresh();
+        $this->assertSame('Nouveau titre', $mission->title);
+        $this->assertSame(5000.0, (float) $mission->budget_min);
+    }
+
+    public function test_client_cannot_update_mission_in_progress(): void
+    {
+        $client = $this->clientUser();
+
+        $mission = Mission::create([
+            'user_id' => $client->id,
+            'title' => 'Mission en cours',
+            'description' => 'Test',
+            'type' => 'fixed',
+            'currency' => 'XAF',
+            'status' => MissionStatus::InProgress,
+            'moderation_status' => 'approved',
+        ]);
+
+        $this->actingAs($client)
+            ->patch(route('missions.update', $mission), [
+                'title' => 'Hack',
+                'description' => 'Hack',
+                'type' => 'fixed',
+                'currency' => 'XAF',
+            ])
+            ->assertForbidden();
     }
 
     public function test_freelancer_cannot_apply_twice(): void

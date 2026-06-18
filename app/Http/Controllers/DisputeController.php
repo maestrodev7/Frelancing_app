@@ -8,6 +8,7 @@ use App\Http\Requests\ResolveDisputeRequest;
 use App\Http\Requests\StoreDisputeRequest;
 use App\Models\Dispute;
 use App\Models\Mission;
+use App\Services\Payments\MissionPaymentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use Inertia\Response;
 
 class DisputeController extends Controller
 {
+    public function __construct(
+        private readonly MissionPaymentService $payments,
+    ) {}
+
     public function index(Request $request): Response
     {
         abort_unless($request->user()?->isStaff(), 403);
@@ -88,11 +93,24 @@ class DisputeController extends Controller
                 'resolved_at' => now(),
             ]);
 
-            $dispute->mission->update([
-                'status' => $validated['resolution_outcome'] === 'close_mission'
-                    ? MissionStatus::Closed
-                    : MissionStatus::InProgress,
-            ]);
+            $mission = $dispute->mission;
+            $outcome = $validated['resolution_outcome'];
+
+            if ($outcome === 'refund_client') {
+                $escrow = $this->payments->escrowForMission($mission);
+                if ($escrow !== null) {
+                    $this->payments->refundToClient($escrow);
+                }
+                $mission->update(['status' => MissionStatus::Closed]);
+            } elseif ($outcome === 'close_mission') {
+                $escrow = $this->payments->escrowForMission($mission);
+                if ($escrow !== null) {
+                    $this->payments->releaseToFreelancer($escrow);
+                }
+                $mission->update(['status' => MissionStatus::Closed]);
+            } else {
+                $mission->update(['status' => MissionStatus::InProgress]);
+            }
         });
 
         return redirect()
@@ -154,6 +172,7 @@ class DisputeController extends Controller
     {
         return match ($status) {
             MissionStatus::Open => 'Ouverte',
+            MissionStatus::AwaitingPayment => 'En attente de paiement',
             MissionStatus::InProgress => 'En cours',
             MissionStatus::Disputed => 'En litige',
             MissionStatus::Closed => 'Clôturée',

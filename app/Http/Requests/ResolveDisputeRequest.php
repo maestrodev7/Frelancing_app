@@ -19,7 +19,7 @@ class ResolveDisputeRequest extends FormRequest
     {
         return [
             'resolution_notes' => ['required', 'string', 'max:5000'],
-            'resolution_outcome' => ['required', Rule::in(['resume_mission', 'close_mission'])],
+            'resolution_outcome' => ['required', Rule::in(['resume_mission', 'close_mission', 'refund_client'])],
         ];
     }
 }

@@ -2,12 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Missions\Enums\MissionStatus;
-use App\Domain\Missions\Enums\ProposalStatus;
 use App\Models\Proposal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ProposalController extends Controller
 {
@@ -16,25 +13,13 @@ class ProposalController extends Controller
         $this->authorizeClientForProposal($request, $proposal);
 
         abort_unless($proposal->isPending(), 403, 'Cette proposition ne peut plus être acceptée.');
-        abort_unless($proposal->mission->isOpen(), 403, 'La mission n\'est plus ouverte.');
+        abort_unless(
+            $proposal->mission->isOpen() || $proposal->mission->isAwaitingPayment(),
+            403,
+            'La mission n\'accepte plus de paiement.',
+        );
 
-        DB::transaction(function () use ($proposal): void {
-            $proposal->update(['status' => ProposalStatus::Accepted]);
-
-            $proposal->mission->update([
-                'status' => MissionStatus::InProgress,
-                'accepted_proposal_id' => $proposal->id,
-            ]);
-
-            $proposal->mission->proposals()
-                ->where('id', '!=', $proposal->id)
-                ->where('status', ProposalStatus::Pending)
-                ->update(['status' => ProposalStatus::Rejected]);
-        });
-
-        return redirect()
-            ->route('missions.show', $proposal->mission_id)
-            ->with('status', 'proposal-accepted');
+        return redirect()->route('proposals.payment.checkout', $proposal);
     }
 
     public function reject(Request $request, Proposal $proposal): RedirectResponse
@@ -43,7 +28,7 @@ class ProposalController extends Controller
 
         abort_unless($proposal->isPending(), 403, 'Cette proposition ne peut plus être refusée.');
 
-        $proposal->update(['status' => ProposalStatus::Rejected]);
+        $proposal->update(['status' => \App\Domain\Missions\Enums\ProposalStatus::Rejected]);
 
         return redirect()
             ->route('missions.show', $proposal->mission_id)

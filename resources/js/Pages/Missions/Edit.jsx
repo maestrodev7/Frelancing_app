@@ -5,22 +5,27 @@ import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
-export default function Create({ missionTypes = [], currencies = [] }) {
-    const { data, setData, post, processing, errors } = useForm({
-        title: '',
-        description: '',
-        type: 'fixed',
-        budget_min: '',
-        budget_max: '',
-        hourly_cap: '',
-        currency: 'XAF',
-        start_expected_at: '',
-        deadline_at: '',
+export default function Edit({
+    mission,
+    missionTypes = [],
+    currencies = [],
+    paymentAmountMinXaf = 100,
+}) {
+    const { data, setData, patch, processing, errors } = useForm({
+        title: mission.title ?? '',
+        description: mission.description ?? '',
+        type: mission.type ?? 'fixed',
+        budget_min: mission.budget_min ?? '',
+        budget_max: mission.budget_max ?? '',
+        hourly_cap: mission.hourly_cap ?? '',
+        currency: mission.currency ?? 'XAF',
+        start_expected_at: mission.start_expected_at ?? '',
+        deadline_at: mission.deadline_at ?? '',
     });
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('missions.store'));
+        patch(route('missions.update', mission.id));
     };
 
     const isHourly = data.type === 'hourly';
@@ -29,14 +34,24 @@ export default function Create({ missionTypes = [], currencies = [] }) {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Publier une mission
+                    Modifier la mission
                 </h2>
             }
         >
-            <Head title="Publier une mission" />
+            <Head title="Modifier la mission" />
 
             <div className="py-12">
                 <div className="mx-auto max-w-3xl sm:px-6 lg:px-8">
+                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        Les paiements Orange / MTN exigent un minimum de{' '}
+                        <strong>
+                            {Number(paymentAmountMinXaf).toLocaleString('fr-FR')} XAF
+                        </strong>
+                        . Modifier le budget de la mission n&apos;change pas le montant
+                        d&apos;une proposition déjà envoyée : refusez-la et demandez au
+                        freelance de reposter avec un montant suffisant.
+                    </div>
+
                     <form
                         onSubmit={submit}
                         className="space-y-6 rounded-lg bg-white p-8 shadow-sm"
@@ -102,11 +117,10 @@ export default function Create({ missionTypes = [], currencies = [] }) {
                                         </option>
                                     ))}
                                 </select>
-                                <InputError message={errors.currency} className="mt-2" />
                                 <p className="mt-1 text-xs text-gray-500">
-                                    Pour Orange Money et MTN, utilisez XAF (minimum 100 XAF
-                                    par paiement).
+                                    Privilégiez XAF pour Orange Money et MTN au Cameroun.
                                 </p>
+                                <InputError message={errors.currency} className="mt-2" />
                             </div>
                         </div>
 
@@ -203,13 +217,13 @@ export default function Create({ missionTypes = [], currencies = [] }) {
 
                         <div className="flex items-center justify-between">
                             <Link
-                                href={route('missions.index')}
+                                href={route('missions.show', mission.id)}
                                 className="text-sm text-gray-600 underline"
                             >
                                 Annuler
                             </Link>
                             <PrimaryButton disabled={processing}>
-                                Publier la mission
+                                Enregistrer les modifications
                             </PrimaryButton>
                         </div>
                     </form>

@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\MissionController;
+use App\Http\Controllers\MissionPaymentController;
 use App\Http\Controllers\MissionReviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProposalController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:client')->group(function () {
         Route::get('/missions/create', [MissionController::class, 'create'])->name('missions.create');
         Route::post('/missions', [MissionController::class, 'store'])->name('missions.store');
+        Route::get('/missions/{mission}/edit', [MissionController::class, 'edit'])->name('missions.edit');
+        Route::patch('/missions/{mission}', [MissionController::class, 'update'])->name('missions.update');
         Route::post('/missions/{mission}/close', [MissionController::class, 'close'])->name('missions.close');
         Route::post('/missions/{mission}/disputes', [DisputeController::class, 'store'])
             ->name('missions.disputes.store');
@@ -48,6 +51,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('proposals.accept');
         Route::patch('/proposals/{proposal}/reject', [ProposalController::class, 'reject'])
             ->name('proposals.reject');
+        Route::get('/proposals/{proposal}/payment', [MissionPaymentController::class, 'checkout'])
+            ->name('proposals.payment.checkout');
+        Route::post('/proposals/{proposal}/payment', [MissionPaymentController::class, 'store'])
+            ->name('proposals.payment.store');
+        Route::get('/payments/{payment}/waiting', [MissionPaymentController::class, 'waiting'])
+            ->name('missions.payments.waiting');
+        Route::get('/payments/{payment}/status', [MissionPaymentController::class, 'status'])
+            ->name('missions.payments.status');
     });
 
     Route::middleware('role:client,freelancer')->group(function () {

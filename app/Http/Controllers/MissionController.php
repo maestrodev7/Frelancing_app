@@ -7,9 +7,13 @@ use App\Domain\Missions\Enums\MissionType;
 use App\Domain\Missions\Enums\ProposalStatus;
 use App\Http\Requests\StoreMissionRequest;
 use App\Http\Requests\StoreProposalRequest;
+use App\Http\Requests\UpdateMissionRequest;
 use App\Models\Mission;
 use App\Models\MissionReview;
 use App\Models\Proposal;
+use App\Domain\Payments\Enums\PaymentStatus;
+use App\Models\MissionPayment;
+use App\Services\Payments\MissionPaymentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +22,10 @@ use Inertia\Response;
 
 class MissionController extends Controller
 {
+    public function __construct(
+        private readonly MissionPaymentService $payments,
+    ) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -91,6 +99,43 @@ class MissionController extends Controller
         return redirect()->route('missions.show', $mission);
     }
 
+    public function edit(Mission $mission): Response
+    {
+        abort_unless($mission->user_id === request()->user()?->id, 403);
+        abort_unless($mission->isOpen(), 403, 'Seules les missions ouvertes peuvent être modifiées.');
+
+        return Inertia::render('Missions/Edit', [
+            'mission' => $this->missionPayload($mission, detailed: true),
+            'missionTypes' => collect(MissionType::cases())->map(fn (MissionType $type): array => [
+                'value' => $type->value,
+                'label' => $type === MissionType::Fixed ? 'Forfait' : 'Horaire',
+            ]),
+            'currencies' => ['XAF', 'EUR', 'USD', 'GBP'],
+            'paymentAmountMinXaf' => (float) config('kratospay.amount_min', 100),
+        ]);
+    }
+
+    public function update(UpdateMissionRequest $request, Mission $mission): RedirectResponse
+    {
+        $validated = $request->validated();
+
+        $mission->update([
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'type' => $validated['type'],
+            'budget_min' => $validated['budget_min'] ?? null,
+            'budget_max' => $validated['budget_max'] ?? null,
+            'hourly_cap' => $validated['hourly_cap'] ?? null,
+            'currency' => $validated['currency'],
+            'start_expected_at' => $validated['start_expected_at'] ?? null,
+            'deadline_at' => $validated['deadline_at'] ?? null,
+        ]);
+
+        return redirect()
+            ->route('missions.show', $mission)
+            ->with('status', 'mission-updated');
+    }
+
     public function show(Request $request, Mission $mission): Response
     {
         $user = $request->user();
@@ -149,6 +194,25 @@ class MissionController extends Controller
                 ]);
         }
 
+        $payableProposalId = null;
+        if ($isOwner && $mission->isAwaitingPayment()) {
+            $payableProposalId = MissionPayment::query()
+                ->where('mission_id', $mission->id)
+                ->whereIn('status', [PaymentStatus::Pending, PaymentStatus::Processing])
+                ->latest()
+                ->value('proposal_id');
+
+            if ($payableProposalId === null) {
+                $pendingIds = $mission->proposals()
+                    ->where('status', ProposalStatus::Pending)
+                    ->pluck('id');
+
+                if ($pendingIds->count() === 1) {
+                    $payableProposalId = $pendingIds->first();
+                }
+            }
+        }
+
         return Inertia::render('Missions/Show', [
             'mission' => $this->missionPayload($mission, includeClient: true, detailed: true),
             'proposals' => $proposals,
@@ -182,6 +246,8 @@ class MissionController extends Controller
             ] : null,
             'receivedReviews' => $receivedReviews,
             'isOwner' => $isOwner,
+            'canEdit' => $isOwner && $mission->isOpen(),
+            'payableProposalId' => $payableProposalId,
             'pricingTypes' => [
                 ['value' => 'fixed', 'label' => 'Forfait'],
                 ['value' => 'hourly', 'label' => 'Horaire'],
@@ -193,6 +259,12 @@ class MissionController extends Controller
     {
         abort_unless($mission->user_id === $request->user()->id, 403);
         abort_unless($mission->isInProgress(), 403, 'Seules les missions en cours peuvent être clôturées.');
+
+        $escrow = $this->payments->escrowForMission($mission);
+
+        if ($escrow !== null) {
+            $this->payments->releaseToFreelancer($escrow);
+        }
 
         $mission->update(['status' => MissionStatus::Closed]);
 
@@ -300,6 +372,7 @@ class MissionController extends Controller
     {
         return match ($status) {
             MissionStatus::Open => 'Ouverte',
+            MissionStatus::AwaitingPayment => 'En attente de paiement',
             MissionStatus::InProgress => 'En cours',
             MissionStatus::Disputed => 'En litige',
             MissionStatus::Closed => 'Clôturée',

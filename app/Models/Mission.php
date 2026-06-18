@@ -73,6 +73,14 @@ class Mission extends Model
     }
 
     /**
+     * @return HasMany<MissionPayment, $this>
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(MissionPayment::class);
+    }
+
+    /**
      * @return HasOne<Dispute, $this>
      */
     public function dispute(): HasOne
@@ -91,6 +99,11 @@ class Mission extends Model
     public function isOpen(): bool
     {
         return $this->status === MissionStatus::Open;
+    }
+
+    public function isAwaitingPayment(): bool
+    {
+        return $this->status === MissionStatus::AwaitingPayment;
     }
 
     public function isInProgress(): bool

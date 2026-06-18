@@ -15,12 +15,14 @@ function FlashMessage() {
     const messages = {
         'proposal-sent': 'Votre proposition a été envoyée avec succès.',
         'proposal-accepted': 'Proposition acceptée. La mission est en cours.',
+        'payment-initiated': 'Paiement initié. Confirmez sur votre téléphone.',
         'proposal-rejected': 'Proposition refusée.',
         'dispute-opened':
             'Litige ouvert. Un administrateur ou secrétaire va traiter votre demande.',
         'mission-closed':
             'Mission clôturée. Vous pouvez maintenant laisser un avis à votre partenaire.',
         'review-submitted': 'Merci, votre avis a été enregistré.',
+        'mission-updated': 'Mission mise à jour avec succès.',
     };
 
     const text = messages[status] ?? status;
@@ -32,7 +34,20 @@ function FlashMessage() {
     );
 }
 
-function ProposalCard({ proposal, isOwner }) {
+function ProposalCard({
+    proposal,
+    isOwner,
+    payableProposalId = null,
+    missionOpen = true,
+    awaitingPayment = false,
+}) {
+    const isPayable = payableProposalId === proposal.id;
+    const canPay =
+        isOwner &&
+        proposal.status === 'pending' &&
+        (missionOpen || (awaitingPayment && isPayable));
+    const showReject =
+        isOwner && proposal.status === 'pending' && (missionOpen || awaitingPayment);
     return (
         <div className="rounded-lg border border-gray-200 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -77,24 +92,30 @@ function ProposalCard({ proposal, isOwner }) {
                 <span>Soumis le : {proposal.submitted_at}</span>
             </div>
 
-            {isOwner && proposal.status === 'pending' && (
+            {canPay && (
                 <div className="mt-4 flex gap-3">
                     <Link
-                        href={route('proposals.accept', proposal.id)}
-                        method="patch"
-                        as="button"
-                        className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                        href={route('proposals.payment.checkout', proposal.id)}
+                        className={`rounded-md px-4 py-2 text-sm font-medium text-white ${
+                            awaitingPayment
+                                ? 'bg-[#FF6600] hover:bg-[#e55a00]'
+                                : 'bg-green-600 hover:bg-green-700'
+                        }`}
                     >
-                        Accepter
+                        {awaitingPayment && isPayable
+                            ? 'Continuer le paiement'
+                            : 'Accepter et payer'}
                     </Link>
-                    <Link
-                        href={route('proposals.reject', proposal.id)}
-                        method="patch"
-                        as="button"
-                        className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                    >
-                        Refuser
-                    </Link>
+                    {showReject && (
+                        <Link
+                            href={route('proposals.reject', proposal.id)}
+                            method="patch"
+                            as="button"
+                            className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                        >
+                            Refuser
+                        </Link>
+                    )}
                 </div>
             )}
         </div>
@@ -114,8 +135,12 @@ export default function Show({
     myReview = null,
     receivedReviews = [],
     isOwner = false,
+    canEdit = false,
+    payableProposalId = null,
     pricingTypes = [],
 }) {
+    const missionOpen = mission.status === 'open';
+    const awaitingPayment = mission.status === 'awaiting_payment';
     const { data, setData, post: postProposal, processing, errors, reset } = useForm({
         cover_letter: '',
         pricing_type: 'fixed',
@@ -173,16 +198,26 @@ export default function Show({
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
                         {mission.title}
                     </h2>
-                    <Link
-                        href={route('missions.index')}
-                        className="text-sm text-gray-600 underline"
-                    >
-                        Retour aux missions
-                    </Link>
+                    <div className="flex items-center gap-4">
+                        {canEdit && (
+                            <Link
+                                href={route('missions.edit', mission.id)}
+                                className="text-sm font-medium text-[#007A5E] underline"
+                            >
+                                Modifier la mission
+                            </Link>
+                        )}
+                        <Link
+                            href={route('missions.index')}
+                            className="text-sm text-gray-600 underline"
+                        >
+                            Retour aux missions
+                        </Link>
+                    </div>
                 </div>
             }
         >
@@ -191,6 +226,14 @@ export default function Show({
             <div className="py-12">
                 <div className="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
                     <FlashMessage />
+
+                    {awaitingPayment && isOwner && (
+                        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            Cette mission est <strong>en attente de paiement</strong>.
+                            Finalisez le paiement pour démarrer la collaboration avec le
+                            freelance.
+                        </div>
+                    )}
 
                     <div className="rounded-lg bg-white p-8 shadow-sm">
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -427,6 +470,9 @@ export default function Show({
                                         key={proposal.id}
                                         proposal={proposal}
                                         isOwner={isOwner}
+                                        payableProposalId={payableProposalId}
+                                        missionOpen={missionOpen}
+                                        awaitingPayment={awaitingPayment}
                                     />
                                 ))
                             )}
